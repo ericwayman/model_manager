@@ -1,0 +1,10 @@
+{
+    "model_params":{
+        "num_topics":100,
+        "min_doc_freq":0.95
+    },
+    "training_params":{
+        "NUM_CV_FOLDS":10,
+        "L1_PENALTY":0.4
+    }
+}

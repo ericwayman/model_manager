@@ -1,9 +1,13 @@
 import os
+import sys
 import configparser
 import json
 from datetime import datetime as dt
 #from tables import metadata, models, model_results, model_objects
-from sqlalchemy import create_engine, MetaData, Integer, DateTime, Table, Column, Interval, Text, JSON, Numeric, ForeignKey,PickleType
+from sqlalchemy import (create_engine,
+    MetaData, Integer, DateTime, Table,
+    Column, Interval, Text, JSON, Numeric,
+    ForeignKey,PickleType)
 import psycopg2 as pg
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
@@ -55,19 +59,6 @@ def serialized_objects_table(metadata,schema):
 
 
 #### class definitions
-
-class ParamManager(object):
-
-    def __init__(self,config_file):
-        self._config_file = config_file
-        config = configparser.ConfigParser()
-        config.read(self._config_file)
-        self.param_dict = {s:dict(config.items(s)) for s in config.sections()}
-        self.config = config
-
-    def get_json(self):
-        return json.dumps(self.param_dict)
-
 class PSQLConn(object):
     """Stores the connection to psql."""
     def __init__(self, db, user, password, host,port=5432):
@@ -105,18 +96,19 @@ class ModelManager(object):
                 schema,
                 model_nickname=None):
         self.db_connection = db_connection
-        #should this be hidden?
-        self.param_manager = ParamManager(config_file)
         self.config_file = config_file
+        with open(self.config_file) as config:
+            self.param_dict = json.load(config)
         self.schema = schema
         self.metadata = MetaData()
         self.models = models_table(self.metadata,schema)
         self.model_results = model_results(self.metadata,schema)
         self.seralized_objects = serialized_objects_table(self.metadata,schema)
         if model_nickname is None:
-            self.model_nickname = os.path.basename(__file__)
+            self.model_nickname = self.config_file
         else: 
             self.model_nickname = model_nickname
+        self.parent_script = sys.argv[0]
 
     def create_tables(self):
         """Initialize all tables if they don't already exist"""
@@ -125,26 +117,23 @@ class ModelManager(object):
 
     def log_model_training(self,train_model):
         """Wrapper around function to train a model.  Stores model in models table"""
-        def wrapper(*train_model_args):
+        def wrapper(**train_model_args):
             start = dt.now()
-            output = train_model(*train_model_args)
+            output = train_model(**train_model_args)
             time_to_train = dt.now()-start
             self._add_row_to_models_table(time_to_run_script=time_to_train)
             return output
         return wrapper
-
-    def get_param_dict(self):
-        return self.param_manager.param_dict
 
     def _add_row_to_models_table(self,time_to_run_script):
         self.create_tables()
         insert = self.models.insert().values(
             time_stamp = dt.now(),
             time_to_run_script = time_to_run_script,
-            model_script = os.path.basename(__file__),
+            model_script = self.parent_script,
             model_nickname = self.model_nickname,
-            param_config_file = self.param_manager._config_file,
-            model_param_dict = self.param_manager.get_json()
+            param_config_file = os.path.basename(self.config_file),
+            model_param_dict = self.param_dict
         )
         with self.db_connection.engine().connect() as conn:
             result = conn.execute(insert)
