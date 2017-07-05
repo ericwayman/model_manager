@@ -7,9 +7,21 @@ ForeignKey,Numeric,PicklType
 
 SCHEMA = 'temp'
 metadata = MetaData()
+#model master list
+model_master_list = Table('model_master_list',metadata,
+        Column('model_id',Integer,primary_key=True),
+        Column('time_created',DateTime),
+        Column('initializing_script',Text),
+        Column('model_param_dict',JSON),
+        schema=SCHEMA
+    )
 
-models = Table('models',metadata,
-    Column('model_id',Integer,primary_key=True),
+model_training = Table('model_training',metadata,
+    Column('model_id',Integer,ForeignKey(
+        '{}.model_master_list.model_id'.format(SCHEMA),
+        ondelete='CASCADE'
+        )
+    ),
     Column('time_stamp',DateTime),
     Column('time_to_run_script',Interval),
     Column('model_script',Text),
@@ -21,7 +33,7 @@ Column('param_config_file',Text),
 
 model_results = Table('model_results',metadata,
     Column('model_id',Integer,ForeignKey(
-        '{}.models.model_id'.format(SCHEMA),
+        '{}.model_master_list.model_id'.format(SCHEMA),
         ondelete='CASCADE'
         )
     ),
@@ -33,7 +45,7 @@ model_results = Table('model_results',metadata,
 
 serialized_objects = Table('serialized_objects',metadata,
     Column('model_id',ForeignKey(
-        '{}.models.model_id'.format(SCHEMA),
+        '{}.model_master_list.model_id'.format(SCHEMA),
         ondelete='CASCADE'
         )
     ),

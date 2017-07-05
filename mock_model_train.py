@@ -16,6 +16,7 @@ conn_factory = PSQLConn(db=os.getenv('DATABASE_NAME'),
                 port=os.getenv("DATABASE_PORT")
 )
 model_manager = ModelManager(
+            model_id=None,
             config_file=CONFIG_FILE,
             db_connection=conn_factory, 
             schema=SCHEMA,
@@ -32,5 +33,5 @@ def train(**training_params):
     return
 
 if __name__ == "__main__":
-    model_manager.create_tables()
+    model_manager.compile()
     train(**TRAINING_PARAMS)
