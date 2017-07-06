@@ -1,15 +1,12 @@
 import os
-from model_manager import ModelManager, PSQLConn
-import json
+from model_manager import ModelManager, ConnectionFactory
 from time import sleep
 #model_params
 CONFIG_FILE="/Users/ewayman/workspace/model_manager/config.json"
 SCHEMA="temp"
 MODEL_NICKNAME = 'mock_model'
-# pm=ParamManager(CONFIG_FILE)
-# p = pm.param_dict
 
-conn_factory = PSQLConn(db=os.getenv('DATABASE_NAME'),
+conn_factory = ConnectionFactory(db=os.getenv('DATABASE_NAME'),
                 user=os.getenv("DATABASE_USER"),
                 password=os.getenv("DATABASE_PASSWORD"),
                 host=os.getenv("DATABASE_HOST"),

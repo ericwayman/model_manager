@@ -82,7 +82,7 @@ def serialized_objects_table(metadata,schema):
 
 
 #### class definitions
-class PSQLConn(object):
+class ConnectionFactory(object):
     """Stores the connection to psql."""
     def __init__(self, db, user, password, host,port=5432):
         self.db = db
@@ -193,7 +193,6 @@ class ModelManager(object):
         return wrapper
 
     def _add_row_to_model_training_table(self,time_to_run_script,training_param_dict,training_metrics):
-        #self.create_tables()
         insert = self.model_training.insert().values(
             model_id = self.model_id,
             time_stamp = dt.now(),
@@ -208,6 +207,32 @@ class ModelManager(object):
         with self.db_connection.engine().connect() as conn:
             result = conn.execute(insert)
         return result
+
+    def save_serialized_model_to_db(self,object_to_save,object_params,object_name):
+        insert = self.seralized_objects.insert().values(
+            model_id = self.model_id,
+            object_name = object_name,
+            object_params = object_params,
+            serialized_object = object_to_save,
+            initializing_script = self.parent_script,
+            time_created = dt.now()
+        )
+        with self.db_connection.engine().connect() as conn:
+            result = conn.execute(insert)
+        return result
+
+    def load_model_object_dict(self):
+        """
+        load a dict of all serialized objects from seralized_objects table for the given model id.
+        key: object_name, value: the deserialized object
+        """
+        pass
+
+    def load_model_object_by_name(self):
+        """
+        load an object from the seralized_objects table into memory.
+        """
+        pass
 
     def log_results(self):
         """"""

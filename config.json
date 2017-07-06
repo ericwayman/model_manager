@@ -1,8 +1,9 @@
 {
     "seed":1111,
     "model_params":{
-        "num_topics":100,
-        "min_doc_freq":0.95
+        "stop_words":"english",
+        "min_doc_freq":0.05,
+        "max_doc_freq":0.95
     },
     "training_params":{
         "NUM_CV_FOLDS":10,

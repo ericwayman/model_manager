@@ -25,10 +25,12 @@ model_training = Table('model_training',metadata,
     Column('time_stamp',DateTime),
     Column('time_to_run_script',Interval),
     Column('model_script',Text),
-    Column('model_nick_name',Text),
-    Column('model_param_dict',JSON),
-Column('param_config_file',Text),
-    schema=SCHEMA
+    Column('model_nickname',Text),
+    Column('model_param_dict',JSON), #can include for consistency, but maybe not be needed if we can find in model_master_list
+    Column('training_param_dict',JSON),
+    Column('training_metrics',JSON),
+    Column('param_config_file',Text),
+schema=SCHEMA
 )
 
 model_results = Table('model_results',metadata,
@@ -52,5 +54,7 @@ serialized_objects = Table('serialized_objects',metadata,
     Column('object_name',Text),
     Column('object_params',JSON),
     Column('serialized_object',PickleType),
+    Column('time_created',DateTime),
+    Column('initializing_script',Text),
     schema=SCHEMA
 )
