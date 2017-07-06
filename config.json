@@ -6,6 +6,7 @@
         "max_doc_freq":0.95
     },
     "training_params":{
+        "texts_file":"texts_for_mock_save_model.txt",
         "NUM_CV_FOLDS":10,
         "L1_PENALTY":0.4
     }

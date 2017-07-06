@@ -3,7 +3,6 @@ import sys
 import configparser
 import json
 from datetime import datetime as dt
-#from tables import metadata, models, model_results, model_objects
 from sqlalchemy import (create_engine,
     MetaData, Integer, DateTime, Table,
     Column, Interval, Text, JSON, Numeric,
@@ -136,8 +135,15 @@ class ModelManager(object):
         self.parent_script = sys.argv[0]
         self.model_id = model_id
 
+    def create_tables(self):
+        """Initialize all tables if they don't already exist"""
+        engine = self.db_connection.engine()
+        self.metadata.create_all(engine)
+
     #compiling the model stores an entry in model_master_list table
-    #crea
+    """
+    should compiling also set the seed?  Seed can be passed as an initialization param and stored in the model_master_list
+    """
     def compile(self):
         """
         Compiling the model manager creates an entry for the model_manager object in the model_master_list
@@ -171,26 +177,6 @@ class ModelManager(object):
                                     )
                                 )
             session.commit()
-    def create_tables(self):
-        """Initialize all tables if they don't already exist"""
-        engine = self.db_connection.engine()
-        self.metadata.create_all(engine)
-
-    def log_model_training(self,train_model):
-        """Wrapper around function to train a model.  Stores outcome in trainingtable
-        train_model is assumed to return a dict of the outcome from the training.  (e.g. keys are indexed by CV folds
-        values are sub dicts mapping accuracy and AUC for each fold
-        """
-        def wrapper(**train_model_args):
-            start = dt.now()
-            output = train_model(**train_model_args)
-            time_to_train = dt.now()-start
-            self._add_row_to_model_training_table(time_to_run_script=time_to_train,
-                                                training_param_dict=train_model_args,
-                                                training_metrics=output
-                                                )
-            return output
-        return wrapper
 
     def _add_row_to_model_training_table(self,time_to_run_script,training_param_dict,training_metrics):
         insert = self.model_training.insert().values(
@@ -208,6 +194,23 @@ class ModelManager(object):
             result = conn.execute(insert)
         return result
 
+
+    def log_model_training(self,train_model):
+        """Wrapper around function to train a model.  Stores outcome in training_table
+        train_model is assumed to return a dict of the outcome from the training.  (e.g. keys are indexed by CV folds
+        values are sub dicts mapping accuracy and AUC for each fold
+        """
+        def wrapper(**train_model_args):
+            start = dt.now()
+            output = train_model(**train_model_args)
+            time_to_train = dt.now()-start
+            self._add_row_to_model_training_table(time_to_run_script=time_to_train,
+                                                training_param_dict=train_model_args,
+                                                training_metrics=output
+                                                )
+            return output
+        return wrapper
+
     def save_serialized_model_to_db(self,object_to_save,object_params,object_name):
         insert = self.seralized_objects.insert().values(
             model_id = self.model_id,
@@ -220,6 +223,26 @@ class ModelManager(object):
         with self.db_connection.engine().connect() as conn:
             result = conn.execute(insert)
         return result
+
+    def log_model_object(self,initialize_train_model):
+        """
+        Wrapper around a function to initialize and train a model_object.
+        Saves a seralized version of the trained_object to the seralized_models table
+
+        initialize_train_model is assumed to have two arguments:
+        architecture_params: a dict of params to define the model architecture
+        training_params: a dict of params to train the model
+        and it returns the trained model object
+        """
+        def wrapper(object_name,architecture_params,training_params):
+            params = {'architecture_params':architecture_params,'training_params':training_params}
+            model_object = initialize_train_model(architecture_params=architecture_params,
+                                            training_params=training_params)
+            self.save_serialized_model_to_db(object_to_save=model_object,
+                                            object_params=params,
+                                            object_name=object_name)
+            return model_object
+        return wrapper
 
     def load_model_object_dict(self):
         """
