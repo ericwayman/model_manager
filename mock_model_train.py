@@ -25,12 +25,13 @@ model_manager = ModelManager(
 
 p = model_manager.param_dict
 TRAINING_PARAMS = p['training_params']
+mock_outcome_dict = {'fold_1': {'acc':.95, 'auc':.9}, 'fold_2': {'acc':.97,'auc':.95}}
 
 @model_manager.log_model_training
 def train(**training_params):
     print(training_params)
     sleep(2)
-    return
+    return mock_outcome_dict
 
 if __name__ == "__main__":
     model_manager.compile()

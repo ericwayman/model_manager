@@ -43,7 +43,8 @@ def model_training(metadata,schema):
         Column('model_script',Text),
         Column('model_nickname',Text),
         Column('model_param_dict',JSON), #can include for consistency, but maybe not be needed if we can find in model_master_list
-        #Column('training_param_dict',JSON),
+        Column('training_param_dict',JSON),
+        Column('training_metrics',JSON),
         Column('param_config_file',Text),
         schema=schema
     )
@@ -73,6 +74,8 @@ def serialized_objects_table(metadata,schema):
         Column('object_name',Text),
         Column('object_params',JSON),
         Column('serialized_object',PickleType),
+        Column('time_created',DateTime),
+        Column('initializing_script',Text),
         schema=schema
     )
     return serialized_objects
@@ -138,8 +141,8 @@ class ModelManager(object):
     def compile(self):
         """
         Compiling the model manager creates an entry for the model_manager object in the model_master_list
-        table if the model_id doesn't exist, otherwise it checks if the id exists.
-        Also, we create all metadata tables if they don't exist.
+        table if the model_id doesn't exist, otherwise it checks that the id exists.
+        We create all metadata tables that they don't already exist.
         """
         #'model_id','time_created''initializing_script','model_param_dict'
         self.create_tables()
@@ -147,16 +150,17 @@ class ModelManager(object):
         if self.model_id is None:
             session = session_maker()
             max_id = session.query(func.max(self.model_master_list.c.model_id)).scalar() or 0
+            model_id = max_id+1
             insert = self.model_master_list.insert().values(
-                            model_id = max_id+1,
+                            model_id = model_id,
                             time_created = dt.now(),
                             initializing_script = self.parent_script,
                             model_param_dict = os.path.basename(self.config_file),
-
             )
             print(insert)
             session.execute(insert)
             session.commit()
+            self.model_id = model_id
         else:
             session = session_maker()
             id_exists=session.query(exists().where(self.model_master_list.c.model_id==self.model_id)).scalar()
@@ -173,24 +177,33 @@ class ModelManager(object):
         self.metadata.create_all(engine)
 
     def log_model_training(self,train_model):
-        """Wrapper around function to train a model.  Stores model in models table"""
+        """Wrapper around function to train a model.  Stores outcome in trainingtable
+        train_model is assumed to return a dict of the outcome from the training.  (e.g. keys are indexed by CV folds
+        values are sub dicts mapping accuracy and AUC for each fold
+        """
         def wrapper(**train_model_args):
             start = dt.now()
             output = train_model(**train_model_args)
             time_to_train = dt.now()-start
-            self._add_row_to_model_training_table(time_to_run_script=time_to_train)
+            self._add_row_to_model_training_table(time_to_run_script=time_to_train,
+                                                training_param_dict=train_model_args,
+                                                training_metrics=output
+                                                )
             return output
         return wrapper
 
-    def _add_row_to_model_training_table(self,time_to_run_script):
-        self.create_tables()
+    def _add_row_to_model_training_table(self,time_to_run_script,training_param_dict,training_metrics):
+        #self.create_tables()
         insert = self.model_training.insert().values(
+            model_id = self.model_id,
             time_stamp = dt.now(),
             time_to_run_script = time_to_run_script,
             model_script = self.parent_script,
             model_nickname = self.model_nickname,
             param_config_file = os.path.basename(self.config_file),
-            model_param_dict = self.param_dict
+            model_param_dict = self.param_dict,
+            training_param_dict = training_param_dict,
+            training_metrics = training_metrics
         )
         with self.db_connection.engine().connect() as conn:
             result = conn.execute(insert)
