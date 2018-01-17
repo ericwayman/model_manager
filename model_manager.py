@@ -8,13 +8,14 @@ from sqlalchemy import (create_engine,
     Column, Interval, Text, JSON, Numeric,
     ForeignKey,PickleType)
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.sql import func,exists
 import psycopg2 as pg
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 
 ############ helper functions to define tables
-##move these functions to schema.py file
+##move these functions to schema.py file or set as static methods
 
 """consider adding fields for number of versions, last version, last modified, etc.
 json of model objects comprising the model
@@ -23,9 +24,12 @@ json field of model_params.  Should be nested {"component_1":{**compnent_1 param
 def model_master_list(metadata,schema):
     models = Table('model_master_list',metadata,
         Column('model_id',Integer,primary_key=True),
+        Column('model_architecture_id',Integer),
+        Column('version_id',Integer)
         Column('time_created',DateTime),
         Column('initializing_script',Text),
-        Column('model_param_dict',JSON),
+        Column('model_architecture_params',JSON),
+        UniqueConstraint('model_architecture_id','version_id',name='version_id_constraint')
         schema=schema
     )
     return models
@@ -41,8 +45,8 @@ def model_training(metadata,schema):
         Column('time_to_run_script',Interval),
         Column('model_script',Text),
         Column('model_nickname',Text),
-        Column('model_param_dict',JSON), #can include for consistency, but maybe not be needed if we can find in model_master_list
-        Column('training_param_dict',JSON),
+        #Column('model_param_dict',JSON), #can include for consistency, but maybe not be needed if we can find in model_master_list
+        Column('training_params',JSON),
         Column('training_metrics',JSON),
         Column('param_config_file',Text),
         schema=schema
@@ -153,6 +157,7 @@ class ModelManager(object):
         #'model_id','time_created''initializing_script','model_param_dict'
         self.create_tables()
         session_maker= sessionmaker(bind = self.db_connection.engine())
+        #if no model_id, create new one as well as model_architecture_id and version_id
         if self.model_id is None:
             session = session_maker()
             max_id = session.query(func.max(self.model_master_list.c.model_id)).scalar() or 0
@@ -167,6 +172,7 @@ class ModelManager(object):
             session.execute(insert)
             session.commit()
             self.model_id = model_id
+        #
         else:
             session = session_maker()
             id_exists=session.query(exists().where(self.model_master_list.c.model_id==self.model_id)).scalar()
@@ -249,16 +255,27 @@ class ModelManager(object):
         load a dict of all serialized objects from seralized_objects table for the given model id.
         key: object_name, value: the deserialized object
         """
-        pass
+        return
 
     def load_model_object_by_name(self):
         """
         load an object from the seralized_objects table into memory.
         """
-        pass
+        return
+
+    def load_model_architecture_params(self):
+        """Return the model architecture params as a dict
+        If the model consists of multiple objects, the model_architecture_params dict should be a nested
+        dict with an outer level key for each object.
+        """
+        return
+    
+    def load_training_params(self):
+        """
+
+        """
+        return
 
     def log_results(self):
         """"""
         pass
-
-
